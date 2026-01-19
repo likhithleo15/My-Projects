@@ -1,5 +1,3 @@
-# My-Projects
-##About
 OrbAI: PRECISION AGRICULTURE ASSISTANT
 
 Built a satellite-driven agricultural platform using Sentinel-2 and Landsat 8 data to monitor crop health in the Karnataka zone.
