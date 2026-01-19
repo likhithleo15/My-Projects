@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrbAI | Precision Agriculture Assistant (Image Analysis)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #2E7D32; /* Ag Green */
+            --secondary: #4CAF50;
+            --accent: #FFC107; /* Warning/Sun */
+            --dark: #1B1B1B;
+            --light: #F5F5F5;
+            --blue: #2196F3; /* Water/Tech */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
+        /* Header */
+        header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            margin-left: 2rem;
+            font-weight: 500;
+        }
+
+        .btn-login {
+            background: var(--primary);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 5px;
+            text-decoration: none;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1625246333195-f819630b94f4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+
+        .hero h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+        .hero p { font-size: 1.2rem; max-width: 700px; margin: 0 auto 2rem; }
+
+        /* Dashboard Layout */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Map Section */
+        .map-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        #map {
+            height: 420px;
+            border-radius: 8px;
+            width: 100%;
+        }
+
+        .map-controls {
+            margin-top: 1rem;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--primary);
+            background: white;
+            color: var(--primary);
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .control-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Image Analysis Panel */
+        .image-panel {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            align-items: flex-start;
+        }
+
+        .image-preview {
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #eee;
+            width: 320px;
+            background: #fafafa;
+            padding: 8px;
+        }
+
+        .image-preview img { width: 100%; display:block; }
+
+        .image-controls {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .small-btn {
+            display:inline-block;
+            padding: 0.5rem 0.8rem;
+            border-radius:6px;
+            border: none;
+            cursor:pointer;
+            font-weight:700;
+            margin-right:8px;
+        }
+
+        .btn-primary { background: var(--primary); color:white; }
+        .btn-ghost { background: white; border:1px solid #ddd; }
+
+        /* Workflow Tracker (Right Panel) */
+        .workflow-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .workflow-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+            border-bottom: 2px solid var(--light);
+            padding-bottom: 0.5rem;
+        }
+
+        .step { /* ... same as before ... */
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+
+        .step.active { opacity: 1; }
+
+        .step-icon { width: 30px; height: 30px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 0.9rem; }
+        .step.active .step-icon { background: var(--blue); color: white; box-shadow: 0 0 10px rgba(33, 150, 243, 0.5); }
+        .step.completed .step-icon { background: var(--primary); color: white; }
+
+        .step-content h4 { margin: 0 0 5px 0; font-size: 1rem; }
+        .step-content p { margin: 0; font-size: 0.85rem; color: #666; }
+
+        /* Features Grid */
+        .features-section { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .feature-card { background: white; padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* Pricing & Footer */
+        .pricing-section { padding: 4rem 2rem; background: white; text-align: center; }
+        footer { background: var(--dark); color: white; padding: 2rem; text-align: center; margin-top: 4rem; }
+
+        /* Canvas overlay */
+        .overlay-canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+
+        /* Loading Animation for workflow */
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); } 100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); } }
+        .processing-dot { display: inline-block; width: 10px; height: 10px; background: var(--blue); border-radius: 50%; animation: pulse 1.5s infinite; margin-left: 10px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <span>🛰️</span> OrbAI
+    </div>
+    <nav class="nav-links">
+        <a href="#map-section">Live Analysis</a>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#" class="btn-login">Farmer Login</a>
+    </nav>
+</header>
+
+<div class="hero">
+    <h1>Smart Fields Begin With Simple Decisions</h1>
+    <p>Turning Space Data into Ground-Level Decisions. Powered by Sentinel-2 Satellite Imagery and AI.</p>
+    <button class="btn-login" style="font-size: 1.1rem;" onclick="startSimulation()">Run System Demo</button>
+</div>
+
+<div class="dashboard-container" id="map-section">
+    
+    <div class="map-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3>Field Monitor: Karnataka Zone</h3>
+            <div class="map-controls">
+                <button class="control-btn active" onclick="setLayer('satellite', event)">RGB (Sentinel-2)</button>
+                <button class="control-btn" onclick="setLayer('ndvi', event)">NDVI Analysis</button>
+                <button class="control-btn" onclick="setLayer('moisture', event)">Soil Moisture</button>
+            </div>
+        </div>
+
+        <!-- Image Analysis Panel (new) -->
+        <div class="image-panel">
+            <div class="image-preview" id="image-preview">
+                <!-- We'll show a canvas for generated overlay and an img preview -->
+                <canvas id="preview-canvas" width="640" height="360" style="width:100%; height:auto; display:block; background:#000"></canvas>
+            </div>
+
+            <div class="image-controls">
+                <div style="margin-bottom:8px; font-weight:700;">Field Image (sample / upload)</div>
+                <input type="file" id="image-upload" accept="image/*" style="margin-bottom:10px;" />
+                <div>
+                    <button class="small-btn btn-primary" id="analyze-btn">Analyze Image</button>
+                    <button class="small-btn btn-ghost" id="toggle-overlay-btn">Toggle NDVI Overlay</button>
+                    <button class="small-btn btn-ghost" id="download-report">Download Report</button>
+                </div>
+                <div style="margin-top:12px; color:#444; font-size:0.95rem;">
+                    <strong>Instructions:</strong> You can upload a photo of a field (or use the sample). Click "Analyze Image" to compute a quick vegetation health map (pseudo-NDVI) locally in your browser.
+                </div>
+                <div id="analysis-results" style="margin-top:12px; background:#f7f7f7; padding:8px; border-radius:6px; font-weight:600;">No analysis yet.</div>
+            </div>
+        </div>
+
+        <div id="map" style="margin-top:14px;"></div>
+        <p style="font-size: 0.8rem; color: #777; margin-top: 10px;">
+            *Data Source: Sentinel-2 / Landsat 8 via Google Earth Engine[cite: 69, 141].
+        </p>
+    </div>
+
+    <div class="workflow-card">
+        <div class="workflow-title">System Workflow Tracker</div>
+        
+        <div class="step" id="step-1">
+            <div class="step-icon">1</div>
+            <div class="step-content">
+                <h4>Data Acquisition</h4>
+                <p>Sentinel-2 Satellite Capture & Ingestion</p>
+            </div>
+        </div>
+
+        <div class="step" id="step-2">
+            <div class="step-icon">2</div>
+            <div class="step-content">
+                <h4>Processing</h4>
+                <p>NDVI, EVI & Biomarker Calculation</p>
+            </div>
+        </div>
+
+        <div class="step" id="step-3">
+            <div class="step-icon">3</div>
+            <div class="step-content">
+                <h4>AI Analysis</h4>
+                <p>Disease Prediction & Water Optimization</p>
+            </div>
+        </div>
+
+        <div class="step" id="step-4">
+            <div class="step-icon">4</div>
+            <div class="step-content">
+                <h4>Communication</h4>
+                <p>WhatsApp Alert & Kannada Voice Generation</p>
+            </div>
+        </div>
+
+        <div class="step" id="step-5">
+            <div class="step-icon">5</div>
+            <div class="step-content">
+                <h4>Feedback Loop</h4>
+                <p>Farmer Action & Model Retraining</p>
+            </div>
+        </div>
+
+        <div id="status-msg" style="margin-top:20px; font-weight:600; color:var(--blue); text-align:center;">
+            System Ready. Click "Run System Demo" above.
+        </div>
+    </div>
+</div>
+
+<div class="features-section" id="features">
+    <h2 style="text-align:center; margin-bottom: 2rem;">Core Technical Features</h2>
+    <div class="features-grid">
+        <div class="feature-card">
+            <h3>🛰️ Satellite Imagery</h3>
+            <p>Ingestion of Sentinel-2 and Landsat 8 data for high-res field monitoring.</p>
+        </div>
+        <div class="feature-card">
+            <h3>📊 AI Vegetation Analytics</h3>
+            <p>Real-time NDVI, EVI, SAVI, and canopy stress biomarker analysis[cite: 70].</p>
+        </div>
+        <div class="feature-card">
+            <h3>💧 Water Optimization</h3>
+            <p>Predictive irrigation scheduling saving up to 38% water usage[cite: 72, 25].</p>
+        </div>
+        <div class="feature-card">
+            <h3>🗣️ Regional Support</h3>
+            <p>Integrated Chatbot and Voice alerts specifically in Kannada[cite: 23].</p>
+        </div>
+        <div class="feature-card">
+            <h3>🏛️ Scheme Navigator</h3>
+            <p>Helps farmers apply for government subsidies and verify eligibility[cite: 24].</p>
+        </div>
+        <div class="feature-card">
+            <h3>🖼️ Field Image Support (New)</h3>
+            <p>Upload or preview smartphone/handheld field images. Run quick local pseudo-NDVI analysis in-browser and export a short PDF/CSV report.</p>
+        </div>
+    </div>
+</div>
+
+<div class="pricing-section" id="pricing">
+    <h2>Subscription Models</h2>
+    <div class="pricing-table">
+        <div class="price-card">
+            <h3>Freemium</h3>
+            <div class="price">₹0</div>
+            <ul style="text-align: left; padding-left: 20px;">
+                <li>Basic crop health alerts</li>
+                <li>Weekly NDVI insights</li>
+                <li>Kannada Chatbot</li>
+            </ul>
+            <a href="#" class="btn-login" style="background:#777;">Get Started</a>
+        </div>
+        <div class="price-card premium">
+            <div style="background:var(--accent); color:black; padding:2px 10px; border-radius:10px; font-size:0.8rem; display:inline-block; margin-bottom:10px;">RECOMMENDED</div>
+            <h3>Premium</h3>
+            <div class="price">₹199<span style="font-size:1rem; color:#666;">/mo</span></div>
+            <ul style="text-align: left; padding-left: 20px;">
+                <li>Detailed AI Disease Analysis</li>
+                <li>Daily Water Scheduling</li>
+                <li>Voice Assistant</li>
+            </ul>
+            <a href="#" class="btn-login">Start Free Trial</a>
+        </div>
+    </div>
+</div>
+
+<footer>
+    <p>OrbAI © 2025 | Team AEON (SPC007)</p>
+    <p>New Horizon College of Engineering | Dept of AI & ML</p>
+    <p>Developed for Ideathon 2025 [cite: 11, 28]</p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // --- Sample image path (the uploaded screenshot) ---
+    // Use the local path provided by the environment. This will be transformed to a URL by the host.
+    const sampleImageUrl = '/mnt/data/Screenshot_20251121-124909.png';
+
+    // Initialize Map (same as before)
+    const map = L.map('map').setView([12.9716, 77.5946], 15); 
+    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' }).addTo(map);
+
+    const farmPolygon = L.polygon([
+        [12.9720, 77.5940],
+        [12.9740, 77.5940],
+        [12.9740, 77.5970],
+        [12.9720, 77.5970]
+    ], {
+        color: '#fff',
+        weight: 2,
+        fillColor: 'transparent',
+        fillOpacity: 0
+    }).addTo(map);
+
+    // Layer control function updated to accept event
+    function setLayer(type, ev) {
+        if (ev && ev.target) {
+            document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
+            ev.target.classList.add('active');
+        }
+
+        if (type === 'satellite') {
+            farmPolygon.setStyle({ fillColor: 'transparent', fillOpacity: 0 });
+        } else if (type === 'ndvi') {
+            farmPolygon.setStyle({ fillColor: '#4CAF50', fillOpacity: 0.6, color: 'yellow' });
+            farmPolygon.bindPopup("<b>NDVI Analysis:</b> 0.78 (Healthy)<br><b>Action:</b> No stress detected.").openPopup();
+        } else if (type === 'moisture') {
+            farmPolygon.setStyle({ fillColor: '#2196F3', fillOpacity: 0.5, color: 'blue' });
+            farmPolygon.bindPopup("<b>Soil Moisture:</b> 22%<br><b>Action:</b> Irrigation Recommended.").openPopup();
+        }
+    }
+
+    // --- Image analysis logic ---
+    const uploadInput = document.getElementById('image-upload');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const toggleOverlayBtn = document.getElementById('toggle-overlay-btn');
+    const previewCanvas = document.getElementById('preview-canvas');
+    const previewCtx = previewCanvas.getContext('2d');
+    const resultsDiv = document.getElementById('analysis-results');
+    const downloadReportBtn = document.getElementById('download-report');
+
+    // Keep track of overlay visibility
+    let overlayOn = true;
+    let currentImage = new Image();
+    let lastAnalysis = null; // store analysis summary
+
+    // Load sample image on page load
+    window.addEventListener('load', () => {
+        loadImage(sampleImageUrl);
+    });
+
+    // Handle user uploads
+    uploadInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        loadImage(url);
+    });
+
+    function loadImage(url) {
+        currentImage = new Image();
+        currentImage.crossOrigin = 'Anonymous'; // try to avoid CORS tainting when possible
+        currentImage.onload = () => {
+            // Resize canvas to image aspect ratio but limit to max width
+            const maxW = 640;
+            const scale = Math.min(1, maxW / currentImage.width);
+            previewCanvas.width = Math.round(currentImage.width * scale);
+            previewCanvas.height = Math.round(currentImage.height * scale);
+            previewCtx.drawImage(currentImage, 0, 0, previewCanvas.width, previewCanvas.height);
+            resultsDiv.innerText = 'Image loaded. Click "Analyze Image" to run pseudo-NDVI.';
+            lastAnalysis = null;
+        };
+        currentImage.onerror = () => {
+            resultsDiv.innerText = 'Failed to load image.';
+        }
+        currentImage.src = url;
+    }
+
+    // Analysis: compute a quick pseudo-NDVI using (G-R)/(G+R) per pixel and produce a colored overlay
+    function analyzeImage() {
+        if (!currentImage || !currentImage.complete) {
+            resultsDiv.innerText = 'No image loaded.';
+            return;
+        }
+
+        const w = previewCanvas.width;
+        const h = previewCanvas.height;
+        const imageData = previewCtx.getImageData(0,0,w,h);
+        const data = imageData.data;
+
+        // We'll compute the average pseudo-NDVI and generate heatmap data
+        let sumNdvi = 0;
+        let count = 0;
+        const ndviVals = new Float32Array(w*h);
+
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i+1];
+            // Avoid division by zero
+            const denom = (g + r) || 1;
+            const ndvi = (g - r) / denom; // range approx -1..1
+            const idx = i/4;
+            ndviVals[idx] = ndvi;
+            sumNdvi += ndvi;
+            count++;
+        }
+
+        const avgNdvi = sumNdvi / count;
+        lastAnalysis = { avgNdvi: avgNdvi.toFixed(3) };
+
+        // Create overlay canvas (in-memory) and draw color-mapped pixels
+        const overlay = previewCtx.createImageData(w,h);
+        for (let i = 0; i < ndviVals.length; i++) {
+            const nd = ndviVals[i];
+            // Map ndvi to a color ramp: red (stressed) -> yellow -> green (healthy)
+            const col = ndviToRGB(nd);
+            overlay.data[i*4] = col[0];
+            overlay.data[i*4+1] = col[1];
+            overlay.data[i*4+2] = col[2];
+            overlay.data[i*4+3] = Math.round(180); // semi-transparent overlay
+        }
+
+        // Draw original image then overlay (respecting overlayOn)
+        previewCtx.clearRect(0,0,w,h);
+        previewCtx.drawImage(currentImage, 0, 0, w, h);
+        if (overlayOn) previewCtx.putImageData(overlay, 0, 0);
+
+        // Update results text and small recommendations
+        const healthText = interpretNdvi(avgNdvi);
+        resultsDiv.innerHTML = `Avg. pseudo-NDVI: <strong>${lastAnalysis.avgNdvi}</strong> — ${healthText}`;
+    }
+
+    function ndviToRGB(nd) {
+        // clamp
+        const v = Math.max(-1, Math.min(1, nd));
+        // simple gradient: nd <= -0.1 => red; nd 0 => yellow; nd >= 0.4 => green
+        if (v < -0.1) return [180, 30, 30];
+        if (v < 0.0) { // red -> orange
+            const t = (v + 0.1) / 0.1; // 0..1
+            return lerpColor([180,30,30], [230,140,30], t);
+        }
+        if (v < 0.4) { // orange -> yellow -> light green
+            const t = v / 0.4;
+            return lerpColor([230,140,30], [100,200,100], t);
+        }
+        return [40,150,40];
+    }
+
+    function lerpColor(a,b,t) { return [ Math.round(a[0] + (b[0]-a[0])*t), Math.round(a[1] + (b[1]-a[1])*t), Math.round(a[2] + (b[2]-a[2])*t) ]; }
+
+    function interpretNdvi(v) {
+        if (v >= 0.4) return 'Healthy vegetation — No immediate action';
+        if (v >= 0.1) return 'Moderate vegetation — Monitor & consider irrigation/fertilizer';
+        if (v >= -0.1) return 'Low vegetation signal — possible stress';
+        return 'Very low vegetation — urgent inspection recommended';
+    }
+
+    analyzeBtn.addEventListener('click', () => {
+        analyzeImage();
+    });
+
+    toggleOverlayBtn.addEventListener('click', () => {
+        overlayOn = !overlayOn;
+        // re-draw (if we've already analyzed) or simply redraw the image
+        if (lastAnalysis) analyzeImage();
+        else if (currentImage.complete) { previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height); previewCtx.drawImage(currentImage,0,0,previewCanvas.width,previewCanvas.height); }
+        toggleOverlayBtn.innerText = overlayOn ? 'Toggle NDVI Overlay' : 'Show NDVI Overlay';
+    });
+
+    // Simple client-side report generation (CSV) for quick download
+    downloadReportBtn.addEventListener('click', () => {
+        if (!lastAnalysis) {
+            alert('Please run analysis first.');
+            return;
+        }
+        const csv = `metric,value\navg_pseudo_ndvi,${lastAnalysis.avgNdvi}\ninterpretation,${interpretNdvi(parseFloat(lastAnalysis.avgNdvi))}`;
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'orbai_image_report.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    // --- Simulation workflow (unchanged but updated event usage) ---
+    function startSimulation() {
+        const steps = ['step-1', 'step-2', 'step-3', 'step-4', 'step-5'];
+        const statusMsg = document.getElementById('status-msg');
+        steps.forEach(id => {
+            const el = document.getElementById(id);
+            el.classList.remove('active', 'completed');
+        });
+
+        let current = 0;
+        function processStep() {
+            if (current > 0) document.getElementById(steps[current-1]).classList.add('completed');
+            if (current < steps.length) {
+                const el = document.getElementById(steps[current]);
+                el.classList.add('active');
+                if(current === 0) { statusMsg.innerHTML = "Acquiring Sentinel-2 Data... <span class='processing-dot'></span>"; }
+                if(current === 1) { statusMsg.innerHTML = "Calculating NDVI & EVI Indices... <span class='processing-dot'></span>"; setLayer('ndvi'); }
+                if(current === 2) { statusMsg.innerHTML = "AI Model Predicting Disease Risks... <span class='processing-dot'></span>"; }
+                if(current === 3) { statusMsg.innerHTML = "Generating WhatsApp Voice Alert (Kannada)... <span class='processing-dot'></span>"; }
+                if(current === 4) { statusMsg.innerText = "Waiting for Farmer Feedback Loop..."; }
+                current++;
+                setTimeout(processStep, 1500);
+            } else {
+                statusMsg.innerText = "Analysis Complete. Insights delivered to Farmer App.";
+                document.getElementById(steps[steps.length-1]).classList.add('completed');
+            }
+        }
+        processStep();
+    }
+
+</script>
+</body>
+</html>
